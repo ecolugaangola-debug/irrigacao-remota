@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECOLUGA - Irrigação Remota Inteligente</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Reset e estilos gerais */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f9fc;
+            color: #333;
+            line-height: 1.6;
+            position: relative;
+            overflow-x: hidden;
+            padding-top: 80px; /* Adicionado para compensar a altura do header fixo */
+        }
+
+        /* Container das folhas - ATRÁS de tudo */
+        .leaves-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -2; /* ATRÁS de tudo */
+            overflow: hidden;
+        }
+
+        /* Folhas caindo com efeito de vento */
+        .leaf {
+            position: absolute;
+            background-color: rgba(46, 125, 50, 0.3);
+            border-radius: 50% 0 50% 50%;
+            transform: rotate(45deg);
+            animation: falling linear infinite;
+            opacity: 0.7;
+            filter: blur(0.5px);
+        }
+
+        .leaf:nth-child(odd) {
+            background-color: rgba(56, 142, 60, 0.4);
+            border-radius: 0 50% 50% 50%;
+        }
+
+        .leaf:nth-child(3n) {
+            background-color: rgba(76, 175, 80, 0.35);
+            border-radius: 50% 50% 50% 0;
+        }
+
+        /* Animação de queda com vento */
+        @keyframes falling {
+            0% {
+                top: -10%;
+                transform: rotate(0deg) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.8;
+            }
+            90% {
+                opacity: 0.6;
+            }
+            100% {
+                top: 110%;
+                transform: rotate(360deg) translateX(calc(100px * var(--wind-direction, 1)));
+                opacity: 0;
+            }
+        }
+
+        /* Animação de balanço */
+        @keyframes sway {
+            0%, 100% {
+                transform: rotate(45deg) translateX(0);
+            }
+            50% {
+                transform: rotate(45deg) translateX(10px);
+            }
+        }
+
+        /* Aplicar ambas animações */
+        .leaf {
+            animation: falling linear infinite, sway 3s ease-in-out infinite;
+        }
+
+        /* Fundo animado de gotas de água - ATRÁS de TUDO, incluindo atrás do header */
+        .water-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20; /* ATRÁS de tudo, mas à frente das folhas */
+            overflow: hidden;
+            opacity: 10; /* Mais transparente para não atrapalhar */
+            pointer-events: none;
+        }
+
+        .water-drop {
+            position: absolute;
+            width: 5px;
+            height: 25px;
+            background: linear-gradient(to bottom, 
+                rgba(42, 122, 92, 0.9),
+                rgba(26, 188, 156, 0.9));
+            border-radius: 0 0 15px 15px;
+            animation: fall linear infinite;
+            box-shadow: 0 0 5px rgba(26, 188, 156, 0.5);
+            pointer-events: none;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-100px);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.9;
+            }
+            90% {
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateY(100vh);
+                opacity: 0;
+            }
+        }
+
+        /* Adicionando efeito de respingo */
+        .water-drop::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 4px;
+            background: rgba(26, 188, 156, 0.5);
+            border-radius: 50%;
+            animation: splash 0.5s ease-out infinite;
+        }
+
+        @keyframes splash {
+            0%, 100% {
+                transform: translateX(-50%) scale(0.5);
+                opacity: 0.3;
+            }
+            50% {
+                transform: translateX(-50%) scale(1);
+                opacity: 0.7;
+            }
+        }
+
+        /* CABEÇALHO FIXO NO TOPO - MODIFICAÇÕES AQUI */
+        header {
+            background-color: white; /* Fundo sólido para cobrir as animações */
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000; /* Alto para ficar acima de tudo */
+            transition: all 0.3s ease;
+            border-bottom: 2px solid rgba(42, 122, 92, 0.2);
+        }
+
+        /* Header quando rolar a página - efeito de destaque */
+        header.scrolled {
+            background-color: white;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+            padding: 5px 0;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        /* Ajustar padding do header quando scrolled */
+        header.scrolled .header-container {
+            padding: 10px 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .logo-img {
+            height: 60px;
+            width: auto;
+            max-width: 200px;
+            transition: all 0.3s ease;
+        }
+
+        /* Logo menor quando scrolled */
+        header.scrolled .logo-img {
+            height: 50px;
+        }
+
+        /* NOME DA EMPRESA VISÍVEL NA BARRA SUPERIOR - MODIFICADO */
+        .logo-text {
+            margin-left: 15px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2a7a5c;
+            display: block; /* AGORA VISÍVEL */
+        }
+
+        /* Menu de navegação */
+        nav ul {
+            display: flex;
+            list-style: none;
+        }
+
+        nav ul li {
+            margin-left: 25px;
+        }
+
+        nav ul li a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            padding: 8px 15px;
+            border-radius: 6px;
+            position: relative;
+        }
+
+        nav ul li a:hover {
+            color: #2a7a5c;
+            background-color: rgba(42, 122, 92, 0.1);
+        }
+
+        /* Efeito de sublinhado para links ativos */
+        nav ul li a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background-color: #2a7a5c;
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+
+        nav ul li a:hover::after {
+            width: 80%;
+        }
+
+        /* Botão menu móvel */
+        .menu-toggle {
+            display: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #2a7a5c;
+            background: none;
+            border: none;
+            outline: none;
+        }
+
+        /* Botão WhatsApp flutuante */
+        .whatsapp-float {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background-color: #25D366;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+            z-index: 999;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        
+        .whatsapp-float:hover {
+            background-color: #128C7E;
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
+        }
+
+        /* CONTEÚDO PRINCIPAL */
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1; /* Acima das animações */
+        }
+
+        section {
+            padding: 80px 0;
+            position: relative;
+            z-index: 1; /* Acima das animações */
+            background-color: inherit;
+        }
+
+        /* Seção Hero - ajustar margem superior */
+        .hero {
+            background: linear-gradient(rgba(42, 122, 92, 0.85), rgba(42, 122, 92, 0.75)), url('https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: white;
+            padding: 140px 0 100px;
+            text-align: center;
+            margin-top: 0;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%231abc9c' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            opacity: 0.3;
+        }
+
+        .hero h1 {
+            font-size: 2.8rem;
+            margin-bottom: 20px;
+            font-weight: 800;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            max-width: 700px;
+            margin: 0 auto 30px;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: #ff7e30;
+            color: white;
+            padding: 15px 35px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(255, 126, 48, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-button:hover {
+            background-color: #ff6a1a;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 106, 26, 0.4);
+        }
+
+        .cta-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(30deg);
+            transition: all 0.5s;
+        }
+
+        .cta-button:hover::after {
+            left: 100%;
+        }
+
+        /* Seções comuns */
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+            color: #2a7a5c;
+            font-size: 2.2rem;
+            position: relative;
+        }
+
+        .section-title:after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 4px;
+            background-color: #2a7a5c;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto 50px;
+            position: relative;
+        }
+
+        /* Seção Sobre */
+        .about {
+            background-color: rgba(255, 255, 255, 0.95);
+            z-index: 1;
+        }
+
+        .about-content {
+            display: flex;
+            align-items: center;
+            gap: 50px;
+        }
+
+        .about-text {
+            flex: 1;
+            position: relative;
+        }
+
+        .about-text h3 {
+            color: #2a7a5c;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        .about-text p {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .about-image {
+            flex: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .about-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(42, 122, 92, 0.1), rgba(26, 188, 156, 0.1));
+            z-index: 1;
+        }
+
+        .about-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.5s;
+            position: relative;
+            z-index: 2;
+        }
+
+        .about-image:hover img {
+            transform: scale(1.05);
+        }
+
+        /* Seção Empresa */
+        .company {
+            background-color: rgba(240, 248, 244, 0.95);
+            z-index: 1;
+        }
+
+        .company-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+            position: relative;
+        }
+
+        .company-item {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .company-item:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .company-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(to right, #2a7a5c, #1abc9c);
+        }
+
+        .company-icon {
+            font-size: 2.5rem;
+            color: #2a7a5c;
+            margin-bottom: 20px;
+        }
+
+        .company-item h3 {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        /* Seção Serviços */
+        .services {
+            background-color: rgba(255, 255, 255, 0.95);
+            z-index: 1;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            position: relative;
+        }
+
+        .service-card {
+            background-color: #f8fdfb;
+            padding: 35px 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            border-top: 4px solid #2a7a5c;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .service-icon {
+            font-size: 2.8rem;
+            color: #2a7a5c;
+            margin-bottom: 20px;
+        }
+
+        .service-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        /* Seção Produtos */
+        .products {
+            background-color: rgba(240, 248, 244, 0.95);
+            z-index: 1;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            position: relative;
+        }
+
+        .product-card {
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .product-image {
+            height: 200px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .product-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(42, 122, 92, 0.1));
+            z-index: 1;
+        }
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+            position: relative;
+            z-index: 2;
+        }
+
+        .product-card:hover .product-image img {
+            transform: scale(1.1);
+        }
+
+        .product-content {
+            padding: 25px;
+            position: relative;
+        }
+
+        .product-content h3 {
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+            color: #2a7a5c;
+        }
+
+        .product-price {
+            color: #ff7e30;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        /* Seção Contato */
+        .contact {
+            background-color: rgba(255, 255, 255, 0.95);
+            z-index: 1;
+        }
+
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f8fdfb;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .contact-form::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(to right, #2a7a5c, #1abc9c);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2a7a5c;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: #2a7a5c;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(42, 122, 92, 0.2);
+        }
+
+        .submit-button {
+            background-color: #2a7a5c;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-button:hover {
+            background-color: #1f5e47;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(31, 94, 71, 0.3);
+        }
+
+        /* Rodapé */
+        footer {
+            background-color: rgba(26, 26, 26, 0.95);
+            color: white;
+            padding: 60px 0 30px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .footer-logo img {
+            height: 50px;
+            width: auto;
+            margin-bottom: 15px;
+        }
+
+        .footer-links h4,
+        .footer-contact h4,
+        .footer-social h4 {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #2a7a5c;
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links ul li {
+            margin-bottom: 10px;
+        }
+
+        .footer-links ul li a {
+            color: #ccc;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links ul li a:hover {
+            color: #2a7a5c;
+        }
+
+        .footer-contact p {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .footer-contact i {
+            margin-right: 10px;
+            color: #2a7a5c;
+            width: 20px;
+        }
+
+        /* Seção Redes Sociais no Rodapé */
+        .footer-social {
+            margin-top: 20px;
+        }
+
+        .footer-social h4 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #2a7a5c;
+        }
+
+        .social-icons {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .social-icons a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            color: #ccc;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .social-icons a:hover {
+            background-color: #2a7a5c;
+            color: white;
+            transform: translateY(-3px);
+        }
+
+        .social-icons a.facebook:hover {
+            background-color: #1877f2;
+        }
+
+        .social-icons a.linkedin:hover {
+            background-color: #0077b5;
+        }
+
+        .copyright {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+            color: #aaa;
+            font-size: 0.9rem;
+            position: relative;
+        }
+
+        /* Animações adicionais */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Responsividade */
+        @media (max-width: 992px) {
+            .about-content {
+                flex-direction: column;
+            }
+            
+            .about-image {
+                order: -1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding-top: 70px;
+            }
+            
+            .header-container {
+                padding: 10px 0;
+            }
+            
+            .logo-img {
+                height: 50px;
+            }
+            
+            .logo-text {
+                font-size: 1.2rem; /* Tamanho menor para mobile */
+            }
+            
+            .menu-toggle {
+                display: block;
+            }
+            
+            nav {
+                position: fixed;
+                top: 70px;
+                left: -100%;
+                width: 100%;
+                background-color: white;
+                padding: 20px;
+                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+                transition: left 0.3s;
+                z-index: 999;
+                height: calc(100vh - 70px);
+                overflow-y: auto;
+            }
+            
+            nav.active {
+                left: 0;
+            }
+            
+            nav ul {
+                flex-direction: column;
+            }
+            
+            nav ul li {
+                margin: 15px 0;
+            }
+            
+            nav ul li a {
+                display: block;
+                padding: 12px 20px;
+                font-size: 1.1rem;
+            }
+            
+            .hero {
+                padding: 100px 0 60px;
+            }
+            
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            .section-title {
+                font-size: 1.8rem;
+            }
+            
+            section {
+                padding: 60px 0;
+            }
+            
+            .footer-content {
+                flex-direction: column;
+            }
+            
+            .footer-logo, .footer-links, .footer-contact {
+                margin-bottom: 30px;
+            }
+            
+            .social-icons {
+                justify-content: flex-start;
+            }
+            
+            header.scrolled {
+                padding: 0;
+            }
+            
+            header.scrolled .logo-img {
+                height: 45px;
+            }
+            
+            header.scrolled .logo-text {
+                font-size: 1.1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding-top: 60px;
+            }
+            
+            nav {
+                top: 60px;
+                height: calc(100vh - 60px);
+            }
+            
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+            
+            .section-title {
+                font-size: 1.6rem;
+            }
+            
+            .contact-form {
+                padding: 25px;
+            }
+            
+            .whatsapp-float {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                font-size: 1.5rem;
+            }
+            
+            .social-icons {
+                gap: 10px;
+            }
+            
+            .social-icons a {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+            
+            .logo-img {
+                height: 45px;
+            }
+            
+            .logo-text {
+                font-size: 1rem; /* Ainda menor para telas muito pequenas */
+            }
+            
+            header.scrolled .logo-img {
+                height: 40px;
+            }
+            
+            header.scrolled .logo-text {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Fundo com folhas caindo - ATRÁS de tudo -->
+    <div class="leaves-container" id="leavesContainer"></div>
+    
+    <!-- Fundo animado de gotas de água - ATRÁS de tudo -->
+    <div class="water-background" id="waterBackground"></div>
+
+    <!-- Cabeçalho FIXO com logo -->
+    <header id="mainHeader">
+        <div class="container header-container">
+            <a href="#inicio" class="logo">
+                <img src="irrig1.jpeg" alt="ECOLUGA - Irrigação Remota" class="logo-img">
+                <span class="logo-text">ECOLUGA ANGOLA</span>
+            </a>
+            
+            <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <nav id="mainNav">
+                <ul>
+                    <li><a href="#inicio">Início</a></li>
+                    <li><a href="#sobre">Sobre a Ecoluga Angola</a></li>
+                    <li><a href="#empresa">Empresa</a></li>
+                    <li><a href="#servicos">Serviços</a></li>
+                    <li><a href="#produtos">Produtos</a></li>
+                    <li><a href="#contato">Contato</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Seção Hero / Início -->
+    <section class="hero" id="inicio">
+        <div class="container fade-in">
+            <h1>Controle Total da Sua Irrigação, de Qualquer Lugar</h1>
+            <p>Sistema de irrigação remota inteligente que economiza água, tempo e dinheiro. Monitore e controle seu sistema de irrigação através do smartphone ou computador.</p>
+            <a href="#contato" class="cta-button pulse">Solicitar Demonstração</a>
+        </div>
+    </section>
+
+    <!-- Seção Sobre a Ecoluga -->
+    <section class="about" id="sobre">
+        <div class="container">
+            <h2 class="section-title fade-in">Sobre a Ecoluga Angola</h2>
+            <p class="section-subtitle fade-in">Conheça nossa missão e visão para revolucionar a irrigação</p>
+            
+            <div class="about-content">
+                <div class="about-text fade-in">
+                    <div style="text-align: center;">
+                        <div style="display: inline-block; text-align: justify; max-width: 600px;">
+                            <div style="text-align: center;">
+                 <p style="display: inline-block; text-align: justify; max-width: 600px;">
+                            <h3>Nossa História</h3>
+                            <p>A ECOLUGA nasceu da necessidade de unir tecnologia e sustentabilidade no setor de irrigação. Soluções inteligentes que transformam a forma como as pessoas cuidam de suas plantas, jardins e cultivos.</p>
+                            <p>Com sede em Luanda, nos especializamos em sistemas de irrigação remota que permitem o controle preciso e eficiente do uso da água.</p>
+                            <p>Nossa equipe é composta por engenheiros agrônomos, desenvolvedores de software e especialistas em automação, todos comprometidos com a missão de promover o uso consciente dos recursos hídricos.</p>
+                       </p>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="about-image fade-in">
+                    <img src="irrig1.jpeg" alt="Equipe ECOLUGA">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Seção Empresa -->
+    <section class="company" id="empresa">
+        <div class="container">
+            <h2 class="section-title fade-in">Nossa Empresa</h2>
+            <p class="section-subtitle fade-in">Valores e compromissos que guiam nosso trabalho</p>
+            
+            <div class="company-grid">
+                <div class="company-item fade-in">
+                    <div class="company-icon">
+                        <i class="fas fa-bullseye"></i>
+                    </div>
+                    <h3>Missão</h3>
+                    <p>Desenvolver soluções tecnológicas inovadoras para irrigação que promovam a sustentabilidade hídrica e facilitem a vida dos nossos clientes.</p>
+                </div>
+                
+                <div class="company-item fade-in">
+                    <div class="company-icon">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <h3>Visão</h3>
+                    <p>Ser referência nacional em sistemas de irrigação inteligente até 2030, contribuindo para a preservação dos recursos hídricos do país.</p>
+                </div>
+                
+                <div class="company-item fade-in">
+                    <div class="company-icon">
+                        <i class="fas fa-gem"></i>
+                    </div>
+                    <h3>Valores</h3>
+                    <p>Sustentabilidade, Inovação, Qualidade, Transparência e Compromisso com o cliente são os pilares que sustentam nossa empresa.</p>
+                </div>
+                
+                <div class="company-item fade-in">
+                    <div class="company-icon">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <h3>Sustentabilidade</h3>
+                    <p>Comprometidos com a preservação ambiental, nossos sistemas reduzem em até 40% o consumo de água na irrigação.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Seção Serviços -->
+    <section class="services" id="servicos">
+        <div class="container">
+            <h2 class="section-title fade-in">Nossos Serviços</h2>
+            <p class="section-subtitle fade-in">Soluções completas para suas necessidades de irrigação</p>
+            
+            <div class="services-grid">
+                <div class="service-card fade-in">
+                    <div class="service-icon">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <h3>Instalação de Sistemas</h3>
+                    <p>Instalação profissional de sistemas de irrigação automatizados para residências, empresas e propriedades rurais.</p>
+                </div>
+                
+                <div class="service-card fade-in">
+                    <div class="service-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h3>Manutenção Preventiva</h3>
+                    <p>Programas de manutenção regular para garantir o funcionamento ideal e a durabilidade do seu sistema.</p>
+                </div>
+                
+                <div class="service-card fade-in">
+                    <div class="service-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Configuração de Apps</h3>
+                    <p>Configuração personalizada do aplicativo de controle remoto para seu sistema de irrigação.</p>
+                </div>
+                
+                <div class="service-card fade-in">
+                    <div class="service-icon">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <h3>Treinamento</h3>
+                    <p>Capacitação completa para uso do sistema, incluindo controle remoto e interpretação de relatórios.</p>
+                </div>
+                
+                <div class="service-card fade-in">
+                    <div class="service-icon">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <h3>Suporte Técnico </h3>
+                    <p>Assistência técnica remota e presencial disponível 16 horas por dia, 5 dias por semana.</p>
+                </div>
+                
+                <div class="service-card fade-in">
+                    <div class="service-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <h3>Consultoria Personalizada</h3>
+                    <p>Análise especializada para determinar a melhor solução de irrigação para suas necessidades específicas.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Seção Produtos -->
+    <section class="products" id="produtos">
+        <div style="text-align: center;">
+                 <p style="display: inline-block; text-align: justify; max-width: 600px;">
+        <div class="container">
+            <h2 class="section-title fade-in">Nossos produtos</h2>
+            <p class="section-subtitle fade-in">Tecnologia de ponta para irrigação inteligente</p>
+            
+            <div class="products-grid">
+                <div class="product-card fade-in">
+                    <div class="product-image">
+                        <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Central de Controle Inteligente">
+                    </div>
+                    <div class="product-content">
+                        <h3>Central de Controle Inteligente</h3>
+                        <p>Cérebro do sistema, conecta todos os componentes e permite controle remoto via aplicativo.</p>
+                        <div class="product-price"></div>
+                    </div>
+                </div>
+                
+                <div class="product-card fade-in">
+                    <div class="product-image">
+                        <img src="sensores.png" alt="Sensores de Umidade">
+                    </div>
+                    <div class="product-content">
+                        <h3>Kit Sensores de Umidade</h3>
+                        <p>Monitora a umidade do solo em tempo real e ajusta automaticamente a irrigação.</p>
+                        <div class="product-price"></div>
+                    </div>
+                </div>
+                
+                <div class="product-card fade-in">
+                    <div class="product-image">
+                        <img src="aspersores.webp" alt="Aspersores Inteligentes">
+                    </div>
+                    <div class="product-content">
+                        <h3>Aspersores Inteligentes</h3>
+                        <p>Distribuem água de forma precisa e uniforme, com controle individual de vazão.</p>
+                        <div class="product-price"></div>
+                    </div>
+                </div>
+                
+                <div class="product-card fade-in">
+                    <div class="product-image">
+                        <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Estação Meteorológica">
+                    </div>
+                    <div class="product-content">
+                        <h3>Controlo Automático</h3>
+                        <p>Coleta dados do seu campo em tempo real para ajustar a irrigação automaticamente.</p>
+                        <div class="product-price"></div>
+                    </div>
+                </div>
+                
+                <div class="product-card fade-in">
+                    <div class="product-image">
+                        <img src="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Kit Inicial Completo">
+                    </div>
+                    <div class="product-content">
+                        <h3>Kit Inicial Completo</h3>
+                        <p>Tudo que você precisa para automatizar a irrigação na sua propriedade.</p>
+                        <div class="product-price"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </p>
+                        </div>
+    </section>
+
+    <!-- Seção Contato -->
+    <section class="contact" id="contato">
+        <div class="container">
+            <h2 class="section-title fade-in">Entre em Contato</h2>
+            <p class="section-subtitle fade-in">Solicite um orçamento ou agende uma demonstração</p>
+            
+            <div class="contact-form fade-in">
+                <form id="contactForm">
+                    <div class="form-group">
+                        <label for="name">Nome Completo *</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">E-mail *</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Telefone *</label>
+                        <input type="tel" id="phone" name="phone" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="property">Tipo de Propriedade *</label>
+                        <select id="property" name="property" required>
+                            <option value="">Selecione...</option>
+                            <option value="residencial">Residencial</option>
+                            <option value="comercial">Comercial</option>
+                            <option value="agricola">Agrícola</option>
+                            <option value="condominio">Condomínio</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="service">Serviço de Interesse</label>
+                        <select id="service" name="service">
+                            <option value="">Selecione...</option>
+                            <option value="instalacao">Instalação</option>
+                            <option value="manutencao">Manutenção</option>
+                            <option value="produto">Compra de Produto</option>
+                            <option value="consultoria">Consultoria</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="message">Mensagem</label>
+                        <textarea id="message" name="message" rows="5" placeholder="Descreva brevemente sua necessidade..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="submit-button">Enviar Mensagem por WhatsApp</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Rodapé -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo fade-in">
+                    <img src="irrig1.jpeg" alt="ECOLUGA - Irrigação Remota" class="logo-img">
+                    <p>Soluções inteligentes de irrigação remota para um futuro sustentável.</p>
+                </div>
+                
+                <div class="footer-links fade-in">
+                    <h4>Links Rápidos</h4>
+                    <ul>
+                        <li><a href="#inicio">Início</a></li>
+                        <li><a href="#sobre">Sobre a Ecoluga</a></li>
+                        <li><a href="#empresa">Empresa</a></li>
+                        <li><a href="#servicos">Serviços</a></li>
+                        <li><a href="#produtos">Produtos</a></li>
+                        <li><a href="#contato">Contato</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-contact fade-in">
+                    <h4>Contato</h4>
+                    <p><i class="fas fa-map-marker-alt"></i> Luanda, Angola</p>
+                    <p><i class="fas fa-phone"></i> +244 958 157 706</p>
+                    <p><i class="fas fa-whatsapp"></i> +244 929002803</p>
+                    <p><i class="fas fa-envelope"></i> ecolugaagola@gmail.com</p>
+                    
+                    <!-- Seção Redes Sociais -->
+                    <div class="footer-social">
+                        <h4>Siganos nas nossas redes</h4>
+                        <div class="social-icons">
+                            <a href="https://www.facebook.com/profile.php?id=61584427714463" target="_blank" class="facebook">
+                                <i class="fab fa-facebook-f"></i>
+                            </a>
+                            <a href="https://www.linkedin.com/in/ecoluga-angola-77ba3639b?utm_source=share_via&utm_content=profile&utm_medium=member_android" target="_blank" class="linkedin">
+                                <i class="fab fa-linkedin-in"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="copyright">
+                <p>&copy; 2025 ECOLUGA ANGOLA - Irrigação Remota. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Botão flutuante do WhatsApp -->
+    <a href="https://wa.me/244958157706?text=Olá,%20gostaria%20de%20mais%20informações%20sobre%20os%20serviços%20da%20ECOLUGA" 
+       class="whatsapp-float" target="_blank">
+       <i class="fab fa-whatsapp"></i>
+    </a>
+
+    <script>
+        // Criar folhas caindo com efeito de vento
+        function createLeaves() {
+            const container = document.getElementById('leavesContainer');
+            const leafCount = 15; // Reduzido para não atrapalhar
+            
+            for (let i = 0; i < leafCount; i++) {
+                const leaf = document.createElement('div');
+                leaf.classList.add('leaf');
+                
+                // Tamanho aleatório
+                const size = Math.random() * 20 + 6;
+                leaf.style.width = `${size}px`;
+                leaf.style.height = `${size}px`;
+                
+                // Posição horizontal aleatória
+                const left = Math.random() * 100;
+                leaf.style.left = `${left}%`;
+                
+                // Direção do vento aleatória (esquerda ou direita)
+                const windDirection = Math.random() > 0.5 ? 1 : -1;
+                leaf.style.setProperty('--wind-direction', windDirection);
+                
+                // Velocidade e atraso aleatórios
+                const delay = Math.random() * 15;
+                const duration = 15 + Math.random() * 20;
+                
+                leaf.style.animationDelay = `${delay}s`;
+                leaf.style.animationDuration = `${duration}s`;
+                
+                container.appendChild(leaf);
+            }
+            
+            // Garantir que as folhas fiquem atrás
+            container.style.zIndex = '-2';
+            container.style.pointerEvents = 'none';
+        }
+
+        // Criar gotas de água animadas - ATRÁS de tudo
+        function createWaterDrops() {
+            const background = document.getElementById('waterBackground');
+            const dropCount = 40; // Reduzido para ser mais sutil
+            
+            for (let i = 0; i < dropCount; i++) {
+                const drop = document.createElement('div');
+                drop.className = 'water-drop';
+                
+                // Posição aleatória
+                const left = Math.random() * 100;
+                
+                // Tamanho aleatório
+                const width = Math.random() * 3 + 2;
+                const height = Math.random() * 25 + 15;
+                
+                // Velocidade aleatória
+                const duration = Math.random() * 10 + 5;
+                const delay = Math.random() * 10;
+                
+                // Cor mais aleatória
+                const hue = 160 + Math.random() * 40;
+                const saturation = 70 + Math.random() * 30;
+                const lightness = 40 + Math.random() * 20;
+                
+                drop.style.left = `${left}%`;
+                drop.style.top = `-50px`;
+                drop.style.width = `${width}px`;
+                drop.style.height = `${height}px`;
+                drop.style.animationDuration = `${duration}s`;
+                drop.style.animationDelay = `${delay}s`;
+                drop.style.background = `linear-gradient(to bottom, 
+                    hsla(${hue}, ${saturation}%, ${lightness}%, 0.7), 
+                    hsla(${hue + 10}, ${saturation}%, ${lightness + 10}%, 0.5))`;
+                
+                background.appendChild(drop);
+            }
+            
+            // Garantir que as gotas fiquem atrás
+            background.style.zIndex = '-1';
+            background.style.pointerEvents = 'none';
+        }
+
+        // Menu mobile toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const mainNav = document.getElementById('mainNav');
+        
+        menuToggle.addEventListener('click', () => {
+            mainNav.classList.toggle('active');
+        });
+        
+        // Fechar menu ao clicar em um link
+        const navLinks = document.querySelectorAll('nav a');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                mainNav.classList.remove('active');
+            });
+        });
+        
+        // Form submission para WhatsApp
+        const contactForm = document.getElementById('contactForm');
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            // Coletar dados do formulário
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            const property = document.getElementById('property').value;
+            const service = document.getElementById('service').value;
+            const message = document.getElementById('message').value;
+            
+            // Formatar mensagem para WhatsApp
+            const texto = `Olá, sou ${name}. Gostaria de mais informações sobre os serviços da ECOLUGA.%0A%0A*Meus dados:*%0A- Email: ${email}%0A- Telefone: ${phone}%0A- Tipo de propriedade: ${property}%0A- Serviço de interesse: ${service}%0A%0A*Minha mensagem:*%0A${message}`;
+            
+            // Número de WhatsApp (Angola)
+            const numero = '244958157706';
+            
+            // URL do WhatsApp
+            const url = `https://wa.me/${numero}?text=${texto}`;
+            
+            // Abrir WhatsApp em nova aba
+            window.open(url, '_blank');
+            
+            // Limpar formulário
+            contactForm.reset();
+            
+            // Mensagem de confirmação
+            alert('Obrigado! Sua mensagem será enviada para o WhatsApp. Por favor, confirme o envio.');
+        });
+        
+        // Smooth scroll para links âncora
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                if(targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if(targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80, // Ajustado para header fixo
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+        
+        // Animação de elementos ao rolar
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+        
+        // Observar elementos para animação
+        document.querySelectorAll('.fade-in').forEach(element => {
+            observer.observe(element);
+        });
+        
+        // Efeito de header ao rolar a página
+        const header = document.getElementById('mainHeader');
+        
+        function handleScroll() {
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        }
+        
+        // Inicializar elementos visíveis na carga inicial
+        document.addEventListener('DOMContentLoaded', function() {
+            createLeaves();
+            createWaterDrops();
+            
+            // Adicionar evento de scroll
+            window.addEventListener('scroll', handleScroll);
+            
+            // Verificar posição inicial
+            handleScroll();
+            
+            document.querySelectorAll('.fade-in').forEach(element => {
+                if (element.getBoundingClientRect().top < window.innerHeight) {
+                    element.classList.add('visible');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
